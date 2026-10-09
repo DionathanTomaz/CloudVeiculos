@@ -1,0 +1,433 @@
+
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud Veículos</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #f1f5f9;
+            color: #1e293b;
+        }
+
+        header {
+            background: #172554;
+            color: white;
+            padding: 24px;
+            text-align: center;
+        }
+
+        header h1 {
+            margin: 0 0 8px;
+        }
+
+        header p {
+            margin: 0;
+            color: #cbd5e1;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 30px auto;
+            padding: 0 20px;
+        }
+
+        .painel {
+            background: white;
+            padding: 24px;
+            margin-bottom: 24px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px #0000000d;
+        }
+
+        h2 {
+            margin-top: 0;
+        }
+
+        .formulario {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .campo {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .campo label {
+            font-weight: bold;
+        }
+
+        input {
+            width: 100%;
+            padding: 11px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 15px;
+        }
+
+        button {
+            padding: 11px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .salvar {
+            background: #2563eb;
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .cancelar {
+            background: #64748b;
+            color: white;
+            grid-column: 1 / -1;
+        }
+
+        .tabela-container {
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 13px 10px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        th {
+            background: #f8fafc;
+        }
+
+        .editar {
+            background: #dbeafe;
+            color: #1d4ed8;
+            margin: 2px;
+        }
+
+        .excluir {
+            background: #fee2e2;
+            color: #b91c1c;
+            margin: 2px;
+        }
+
+        #mensagem {
+            margin-top: 15px;
+            font-weight: bold;
+        }
+
+        .vazio {
+            text-align: center;
+            color: #64748b;
+        }
+
+        @media (max-width: 600px) {
+            .formulario {
+                grid-template-columns: 1fr;
+            }
+
+            .salvar, .cancelar {
+                grid-column: auto;
+            }
+
+            main {
+                padding: 0 12px;
+            }
+
+            .painel {
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Cloud Veículos</h1>
+        <p>Sistema de cadastro e gerenciamento de veículos</p>
+    </header>
+
+    <main>
+
+        <section class="painel">
+            <h2 id="tituloFormulario">Cadastrar veículo</h2>
+
+            <form id="formVeiculo" class="formulario">
+                <input type="hidden" id="id">
+
+                <div class="campo">
+                    <label for="marca">Marca</label>
+                    <input type="text" id="marca" required
+                           placeholder="Ex.: Toyota">
+                </div>
+
+                <div class="campo">
+                    <label for="modelo">Modelo</label>
+                    <input type="text" id="modelo" required
+                           placeholder="Ex.: Corolla">
+                </div>
+
+                <div class="campo">
+                    <label for="ano">Ano</label>
+                    <input type="number" id="ano" required
+                           min="1886" max="2100"
+                           placeholder="Ex.: 2024">
+                </div>
+
+                <div class="campo">
+                    <label for="preco">Preço (R$)</label>
+                    <input type="number" id="preco" required
+                           min="0" step="0.01"
+                           placeholder="Ex.: 95000">
+                </div>
+
+                <button type="submit" class="salvar" id="botaoSalvar">
+                    Cadastrar veículo
+                </button>
+
+                <button type="button" class="cancelar"
+                        id="botaoCancelar" hidden>
+                    Cancelar edição
+                </button>
+            </form>
+
+            <p id="mensagem" role="status"></p>
+        </section>
+
+        <section class="painel">
+            <h2>Veículos cadastrados</h2>
+
+            <div class="tabela-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Marca</th>
+                            <th>Modelo</th>
+                            <th>Ano</th>
+                            <th>Preço</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+
+                    <tbody id="listaVeiculos">
+                        <tr>
+                            <td colspan="6" class="vazio">
+                                Carregando veículos...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+        const API = "/veiculos";
+
+        const formulario = document.getElementById("formVeiculo");
+        const lista = document.getElementById("listaVeiculos");
+        const mensagem = document.getElementById("mensagem");
+        const botaoSalvar = document.getElementById("botaoSalvar");
+        const botaoCancelar = document.getElementById("botaoCancelar");
+        const tituloFormulario = document.getElementById("tituloFormulario");
+
+        async function carregarVeiculos() {
+            try {
+                const resposta = await fetch(API);
+
+                if (!resposta.ok) {
+                    throw new Error("Não foi possível consultar os veículos.");
+                }
+
+                const veiculos = await resposta.json();
+                lista.replaceChildren();
+
+                if (veiculos.length === 0) {
+                    const linha = document.createElement("tr");
+                    const celula = document.createElement("td");
+
+                    celula.colSpan = 6;
+                    celula.className = "vazio";
+                    celula.textContent = "Nenhum veículo cadastrado.";
+
+                    linha.appendChild(celula);
+                    lista.appendChild(linha);
+                    return;
+                }
+
+                veiculos.forEach(veiculo => {
+                    const linha = document.createElement("tr");
+
+                    [
+                        veiculo.id,
+                        veiculo.marca,
+                        veiculo.modelo,
+                        veiculo.ano,
+                        Number(veiculo.preco).toLocaleString("pt-BR", {
+                            style: "currency",
+                            currency: "BRL"
+                        })
+                    ].forEach(valor => {
+                        const celula = document.createElement("td");
+                        celula.textContent = valor ?? "";
+                        linha.appendChild(celula);
+                    });
+
+                    const acoes = document.createElement("td");
+
+                    const editar = document.createElement("button");
+                    editar.textContent = "Editar";
+                    editar.className = "editar";
+                    editar.addEventListener("click", () => editarVeiculo(veiculo));
+
+                    const excluir = document.createElement("button");
+                    excluir.textContent = "Excluir";
+                    excluir.className = "excluir";
+                    excluir.addEventListener("click", () => excluirVeiculo(veiculo.id));
+
+                    acoes.append(editar, excluir);
+                    linha.appendChild(acoes);
+                    lista.appendChild(linha);
+                });
+
+            } catch (erro) {
+                mostrarMensagem(erro.message, true);
+            }
+        }
+
+        formulario.addEventListener("submit", async evento => {
+            evento.preventDefault();
+
+            const id = document.getElementById("id").value;
+
+            const veiculo = {
+                marca: document.getElementById("marca").value.trim(),
+                modelo: document.getElementById("modelo").value.trim(),
+                ano: Number(document.getElementById("ano").value),
+                preco: Number(document.getElementById("preco").value)
+            };
+
+            if (!veiculo.marca || !veiculo.modelo ||
+                !Number.isInteger(veiculo.ano) ||
+                veiculo.ano < 1886 || veiculo.ano > 2100 ||
+                !Number.isFinite(veiculo.preco) || veiculo.preco < 0) {
+                mostrarMensagem("Confira os dados informados.", true);
+                return;
+            }
+
+            try {
+                const resposta = await fetch(
+                    id ? `${API}/${id}` : API,
+                    {
+                        method: id ? "PUT" : "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify(veiculo)
+                    }
+                );
+
+                if (!resposta.ok) {
+                    throw new Error(
+                        "Não foi possível salvar. Confira os dados e tente novamente."
+                    );
+                }
+
+                mostrarMensagem(
+                    id ? "Veículo atualizado com sucesso!" :
+                         "Veículo cadastrado com sucesso!"
+                );
+
+                limparFormulario();
+                await carregarVeiculos();
+
+            } catch (erro) {
+                mostrarMensagem(erro.message, true);
+            }
+        });
+
+        function editarVeiculo(veiculo) {
+            document.getElementById("id").value = veiculo.id;
+            document.getElementById("marca").value = veiculo.marca;
+            document.getElementById("modelo").value = veiculo.modelo;
+            document.getElementById("ano").value = veiculo.ano;
+            document.getElementById("preco").value = veiculo.preco;
+
+            tituloFormulario.textContent = "Editar veículo";
+            botaoSalvar.textContent = "Salvar alterações";
+            botaoCancelar.hidden = false;
+
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+
+        async function excluirVeiculo(id) {
+            if (!confirm("Deseja realmente excluir este veículo?")) {
+                return;
+            }
+
+            try {
+                const resposta = await fetch(`${API}/${id}`, {
+                    method: "DELETE"
+                });
+
+                if (!resposta.ok) {
+                    throw new Error("Não foi possível excluir o veículo.");
+                }
+
+                mostrarMensagem("Veículo excluído com sucesso!");
+                await carregarVeiculos();
+
+            } catch (erro) {
+                mostrarMensagem(erro.message, true);
+            }
+        }
+
+        function limparFormulario() {
+            formulario.reset();
+            document.getElementById("id").value = "";
+            tituloFormulario.textContent = "Cadastrar veículo";
+            botaoSalvar.textContent = "Cadastrar veículo";
+            botaoCancelar.hidden = true;
+        }
+
+        
+let temporizadorMensagem;
+
+function mostrarMensagem(texto, erro = false) {
+    clearTimeout(temporizadorMensagem);
+
+    mensagem.textContent = texto;
+    mensagem.style.color = erro ? "#b91c1c" : "#15803d";
+
+    temporizadorMensagem = setTimeout(() => {
+        mensagem.textContent = "";
+    }, 3000);
+}
+
+
+        botaoCancelar.addEventListener("click", limparFormulario);
+
+        carregarVeiculos();
+    </script>
+
+</body>
+</html>
